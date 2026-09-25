@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="DataMigrate.Engine/DataMigrate.Engine.csproj" />
+  <Project Path="DataMigrate.Sidecar/DataMigrate.Sidecar.csproj" />
+</Solution>

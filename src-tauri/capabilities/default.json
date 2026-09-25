@@ -1,0 +1,22 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "默认权限集：shell sidecar 执行(限定 sidecar fjyxhr-migrate, 禁传参数) + stdin 写入 + kill",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "core:event:default",
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [
+        {
+          "name": "fjyxhr-migrate",
+          "sidecar": true,
+          "args": false
+        }
+      ]
+    },
+    "shell:allow-stdin-write",
+    "shell:allow-kill"
+  ]
+}
