@@ -48,7 +48,7 @@ async function remove() {
 
 <template>
   <div>
-    <Card title="配置档" size="small" style="margin-bottom: 16px">
+    <Card title="配置管理" size="small" style="margin-bottom: 16px">
       <Space wrap>
         <Select :value="profileStore.activeName.value" style="width: 200px" placeholder="选择配置档"
           @change="(v: unknown) => profileStore.activate(String(v))">
