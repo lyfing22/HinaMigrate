@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import {
   Card, Form, FormItem, Input, InputPassword, InputNumber, Select, SelectOption,
   Button, Space, message, Row, Col
@@ -11,6 +11,13 @@ import ConnStringForm from '@/components/ConnStringForm.vue'
 
 const p = profileStore.profile
 const newName = ref('')
+
+// 进入配置页时确保 sidecar 已就绪，并加载支持的数据库类型列表
+// (MainLayout.onMounted 时序早于 App.onMounted 的 sidecarStart，此处需再次确保)
+onMounted(async () => {
+  try { await sidecarStart() } catch { /* 已运行 */ }
+  await metaStore.load()
+})
 
 async function ensureSidecar() {
   try { await sidecarStart() } catch { /* 已运行 */ }

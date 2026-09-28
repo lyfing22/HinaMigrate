@@ -33,21 +33,25 @@ const menus = [
 function go(path: string) { router.push(path as RouteLocationRaw) }
 
 // ---- 窗口控制（frameless 场景） ----
-const win = getCurrentWindow()
+// 浏览器（pnpm dev 调 UI）无 __TAURI_INTERNALS__，此时隐藏窗口三键并跳过窗口 API
+const isTauri = '__TAURI_INTERNALS__' in window
+const win = isTauri ? getCurrentWindow() : null
 const isMaximized = ref(false)
 
 async function refreshMaxState() {
+  if (!win) return
   isMaximized.value = await win.isMaximized()
 }
 
-function minimize() { win.minimize() }
-function toggleMax() { win.toggleMaximize() }
-function close() { win.close() }
+function minimize() { win?.minimize() }
+function toggleMax() { win?.toggleMaximize() }
+function close() { win?.close() }
 
 let unlisten: (() => void) | null = null
 onMounted(async () => {
   await metaStore.load()
-  await profileStore.loadAll()
+  try { await profileStore.loadAll() } catch { /* 浏览器/sidecar 未就绪时忽略 */ }
+  if (!win) return
   await refreshMaxState()
   unlisten = await win.onResized(async () => {
     await refreshMaxState()
@@ -91,8 +95,8 @@ onUnmounted(() => { unlisten?.() })
         <Tag :color="runStatusColor" data-tauri-drag-region="false">{{ runStatusText }}</Tag>
       </div>
 
-      <!-- 自定义窗口三键（绝对定位到 titlebar 右上） -->
-      <div class="wc" data-tauri-drag-region="false">
+      <!-- 自定义窗口三键（绝对定位到 titlebar 右上；浏览器调试时隐藏） -->
+      <div v-if="isTauri" class="wc" data-tauri-drag-region="false">
         <button class="wc-btn" title="最小化" @click="minimize">
           <svg width="10" height="1" viewBox="0 0 10 1"><rect width="10" height="1" fill="currentColor"/></svg>
         </button>
