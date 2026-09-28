@@ -1,16 +1,18 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, computed, ref } from 'vue'
 import { useRoute, useRouter, type RouteLocationRaw } from 'vue-router'
-import { Layout, LayoutSider, LayoutContent, Menu, MenuItem, Tag } from 'ant-design-vue'
+import { Layout, LayoutContent, Menu, MenuItem, Tag, Modal, Tooltip } from 'ant-design-vue'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { metaStore } from '@/stores/meta'
 import { profileStore } from '@/stores/profile'
 import { runStore } from '@/stores/run'
+import AboutPanel from '@/components/AboutPanel.vue'
 
 const route = useRoute()
 const router = useRouter()
 
 const selected = computed(() => [route.path])
+const showAbout = ref(false)
 
 const runStatusColor = computed(() => ({
   idle: 'default', running: 'processing', stopping: 'warning',
@@ -23,15 +25,12 @@ const runStatusText = computed(() => ({
 } as Record<string, string>)[runStore.status.value] ?? runStore.status.value)
 
 const menus = [
-  { key: '/run', label: '迁移执行' },
   { key: '/config', label: '配置管理' },
+  { key: '/run', label: '迁移执行' },
   { key: '/plans', label: '计划追踪' },
-  { key: '/errors', label: '错误重试' },
-  { key: '/about', label: '关于' }
+  { key: '/errors', label: '错误重试' }
 ]
 function go(path: string) { router.push(path as RouteLocationRaw) }
-
-const currentLabel = computed(() => menus.find(m => m.key === route.path)?.label ?? '')
 
 // ---- 窗口控制（frameless 场景） ----
 const win = getCurrentWindow()
@@ -62,9 +61,29 @@ onUnmounted(() => { unlisten?.() })
     <!-- 顶部跨整个窗口的标题栏（Explorer 风格） -->
     <div class="titlebar" data-tauri-drag-region>
       <div class="tb-left">
-        <span class="logo-text" data-tauri-drag-region>福建影像迁移</span>
-        <span class="tb-sep" data-tauri-drag-region>/</span>
-        <span class="crumb" data-tauri-drag-region>{{ currentLabel }}</span>
+        <!-- 左上角 logo：hover 显示"福建影像迁移"，点击弹出"关于" -->
+        <Tooltip title="福建影像迁移" placement="bottomLeft">
+          <img
+            class="logo-img"
+            src="/logo.png"
+            alt=""
+            data-tauri-drag-region="false"
+            @click="showAbout = true"
+          />
+        </Tooltip>
+
+        <!-- 横排操作菜单 -->
+        <Menu
+          v-model:selected-keys="selected"
+          mode="horizontal"
+          theme="light"
+          class="menu-h"
+          data-tauri-drag-region="false"
+          @click="({ key }) => go(String(key))"
+        >
+          <MenuItem v-for="m in menus" :key="m.key">{{ m.label }}</MenuItem>
+        </Menu>
+
         <Tag v-if="profileStore.hasActive.value" color="blue" data-tauri-drag-region="false">{{ profileStore.activeName.value }}</Tag>
         <Tag v-if="profileStore.dirty.value" color="orange" data-tauri-drag-region="false">未保存</Tag>
       </div>
@@ -94,17 +113,17 @@ onUnmounted(() => { unlisten?.() })
       </div>
     </div>
 
-    <!-- 下面才是 Sider + Content -->
+    <!-- 内容区填满标题栏下方 -->
     <Layout class="main-layout">
-      <LayoutSider width="220" theme="light" class="sider">
-        <Menu v-model:selected-keys="selected" mode="inline" theme="light" class="menu">
-          <MenuItem v-for="m in menus" :key="m.key" @click="go(m.key)">{{ m.label }}</MenuItem>
-        </Menu>
-      </LayoutSider>
       <LayoutContent class="content">
         <router-view />
       </LayoutContent>
     </Layout>
+
+    <!-- 关于弹层 -->
+    <Modal v-model:open="showAbout" title="关于" :footer="null" width="640px">
+      <AboutPanel />
+    </Modal>
   </div>
 </template>
 
@@ -143,29 +162,44 @@ onUnmounted(() => { unlisten?.() })
 .tb-right {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
   min-width: 0;
 }
 
-.logo-text {
-  font-weight: 600;
-  color: #1677ff;
+/* 左上角 logo 图标：可点击，hover 有反馈 */
+.logo-img {
+  width: 22px;
+  height: 22px;
+  display: block;
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 4px;
+  transition: background 0.15s ease;
   user-select: none;
-  font-size: 13px;
-  white-space: nowrap;
+}
+.logo-img:hover {
+  background: rgba(22, 119, 255, 0.12);
 }
 
-.tb-sep {
-  color: #999;
-  user-select: none;
+/* 横排菜单贴合 40px 标题栏 */
+.menu-h {
+  min-height: 40px;
+  margin: 0;
+  padding: 0;
+  border-bottom: 0 !important;
+  background: transparent !important;
+  flex: 0 0 auto;
+}
+.menu-h :global(.ant-menu-item) {
+  padding: 0 14px;
+  height: 38px;
+  line-height: 38px;
   font-size: 13px;
 }
-
-.crumb {
-  font-weight: 500;
-  color: #333;
-  user-select: none;
-  font-size: 13px;
+.menu-h :global(.ant-menu-item-active),
+.menu-h :global(.ant-menu-item-selected) {
+  height: 38px;
+  line-height: 38px;
 }
 
 /* 自定义窗口三键 */
@@ -199,15 +233,6 @@ onUnmounted(() => { unlisten?.() })
   flex: 1;
   overflow: hidden;
   background: transparent;
-}
-
-.sider {
-  background: rgba(250, 250, 250, 0.92);
-  border-right: 1px solid #e5e5e5;
-}
-
-.menu {
-  border: 0;
 }
 
 .content {
