@@ -36,12 +36,20 @@ export interface MigrationOptions {
   upload: UploadConfig
 }
 
+// 系统默认配置：与 sidecar appsettings.json 保持一致，
+// 首次启动无配置档时自动写入，用户可在此基础上按需覆盖。
 export function defaultProfile(): MigrationOptions {
   return {
-    connectionStrings: { sourceConn: '', destinationConn: '' },
+    connectionStrings: {
+      sourceConn:
+        'DatabaseType=mongodb;Host=192.168.3.246;Port=27017;Database=NewRIS;User=ris_admin;Password=hinacom;serverSelectionTimeoutMS=5000',
+      destinationConn:
+        'DatabaseType=kingbase;Server=192.168.1.165;Port=54321;Database=miPlatform_MIIS_Upload;User=sa;Password=Hin@c0m.c)m;Connect Timeout=60;TrustServerCertificate=true'
+    },
     migration: {
       mode: 'batch',
-      timeRange: { start: '2020-01-01', end: '2030-12-31' },
+      examId: 'M761|Exam2026622724',
+      timeRange: { start: '2026-07-09', end: '2026-08-29' },
       pageSize: 100,
       parallelism: 4,
       zTempBatchSize: 100,
@@ -51,10 +59,10 @@ export function defaultProfile(): MigrationOptions {
       planOrder: 'ascending'
     },
     upload: {
-      url: '',
-      jwtAppId: '',
+      url: 'http://192.168.1.165/api/Exam/Upload',
+      jwtAppId: '100A1002',
       jwtServerNode: '',
-      jwtAppSecret: '',
+      jwtAppSecret: 'fTHLbVUMyEmn3w0fuBmysg==',
       jwtExpiryMinutes: 40,
       timeoutSeconds: 30
     }
