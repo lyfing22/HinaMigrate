@@ -139,8 +139,12 @@ public sealed class SidecarHost : IDisposable
         var connStr = req.GetArgString("connStr");
         var dbFlag = req.GetArgString("dbFlag");
         using var acc = DataAccessorFactory.Create(connStr);
+        // 注：Id 列在 KingBase/SqlServer 上是 UUID/UNIQUEIDENTIFIER，驱动会以 System.Guid 返回，
+        // 而 System.Guid 未实现 IConvertible，Dapper 转 string 时会抛 InvalidCastException。
+        // 这里在 SQL 层显式 CAST 成 varchar(36) 统一字符串形式，三种数据库均可用。
         var rows = await acc.QueryAsync<PlanRow>(@"
-            SELECT Id, DbFlag, StartTime, EndTime, TotalRecords, SuccessCount, FailedCount, Status, Msg
+            SELECT CAST(Id AS varchar(36)) AS Id,
+                   DbFlag, StartTime, EndTime, TotalRecords, SuccessCount, FailedCount, Status, Msg
             FROM ZTemp_MigratePlan
             WHERE DbFlag = @DbFlag
             ORDER BY StartTime", new { DbFlag = dbFlag });
@@ -353,7 +357,7 @@ public sealed class SidecarHost : IDisposable
         stats.Start();
 
         logger.LogInformation("调试模式: 单条 {ExamId}", examId);
-        var archive = await source.GetByExamIdAsync(parts[0], parts[1]);
+        var archive = await source.GetByExamIdAsync(parts[0], parts[1], ct);
         if (archive == null)
         {
             logger.LogWarning("未找到记录: {ExamId}", examId);
@@ -378,6 +382,7 @@ public sealed class SidecarHost : IDisposable
         var source = sp.GetRequiredService<IMigrationSource>();
         var uploader = sp.GetRequiredService<ExamUploader>();
         var stats = sp.GetRequiredService<MigrationStatistics>();
+        var progress = sp.GetRequiredService<IProgressReporter>();
         var dbFlag = profile.Migration.DbFlag;
 
         logger.LogInformation("错误重试模式: 从 ZTemp_MigrateError 读取失败记录...");
@@ -385,24 +390,66 @@ public sealed class SidecarHost : IDisposable
             "SELECT Id FROM ZTemp_MigrateError WHERE DbFlag=@DbFlag",
             new { DbFlag = dbFlag })).ToList();
 
-        stats.TotalRecords = errorIds.Count;
-        stats.Start();
-
-        foreach (var errorId in errorIds)
+        if (errorIds.Count == 0)
         {
-            ct.ThrowIfCancellationRequested();
-            var parts = errorId.Split('|');
-            if (parts.Length != 2) continue;
-
-            var archive = await source.GetByExamIdAsync(parts[0], parts[1]);
-            if (archive == null) { stats.IncrementFailed(); continue; }
-
-            var result = await uploader.UploadAsync(archive, ct);
-            if (result.Success) stats.IncrementSucceeded(); else stats.IncrementFailed();
+            logger.LogInformation("无待重试记录");
+            stats.TotalRecords = 0;
+            return;
         }
 
-        await uploader.FlushRemainingAsync();
-        stats.Stop();
+        stats.TotalRecords = errorIds.Count;
+        stats.Start();
+        progress.Start(); // 关键：否则前端无 progress 事件，看上去像挂起
+
+        try
+        {
+            for (int i = 0; i < errorIds.Count; i++)
+            {
+                ct.ThrowIfCancellationRequested();
+                var errorId = errorIds[i];
+                var parts = errorId.Split('|');
+                if (parts.Length != 2)
+                {
+                    logger.LogWarning("错误 Id 格式异常，跳过: {Id}", errorId);
+                    stats.IncrementFailed();
+                    continue;
+                }
+
+                ExamUploadReq? archive;
+                try
+                {
+                    // 关键：传 ct，否则 Mongo 查询可能无限期挂起，Stop 按钮无法生效
+                    archive = await source.GetByExamIdAsync(parts[0], parts[1], ct);
+                }
+                catch (OperationCanceledException) { throw; }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "读取源端记录失败: {Id}", errorId);
+                    stats.IncrementFailed();
+                    continue;
+                }
+
+                if (archive == null)
+                {
+                    logger.LogWarning("源端已无记录: {Id}", errorId);
+                    stats.IncrementFailed();
+                    continue;
+                }
+
+                var result = await uploader.UploadAsync(archive, ct);
+                if (result.Success) stats.IncrementSucceeded(); else stats.IncrementFailed();
+
+                // 每 50 条打一行日志，避免日志爆炸同时保留可读性
+                if ((i + 1) % 50 == 0 || i == errorIds.Count - 1)
+                    logger.LogInformation("重试进度 {Done}/{Total}", i + 1, errorIds.Count);
+            }
+        }
+        finally
+        {
+            await uploader.FlushRemainingAsync();
+            progress.Stop();
+            stats.Stop();
+        }
     }
 
     private async Task RetryIdsAsync(IServiceProvider sp, MigrationOptions profile, string[] ids, CancellationToken ct)
@@ -411,25 +458,60 @@ public sealed class SidecarHost : IDisposable
         var source = sp.GetRequiredService<IMigrationSource>();
         var uploader = sp.GetRequiredService<ExamUploader>();
         var stats = sp.GetRequiredService<MigrationStatistics>();
+        var progress = sp.GetRequiredService<IProgressReporter>();
 
         stats.TotalRecords = ids.Length;
         stats.Start();
+        progress.Start(); // 保证前端能收到 progress 事件，不致于看上去像卡住
 
-        foreach (var errorId in ids)
+        try
         {
-            ct.ThrowIfCancellationRequested();
-            var parts = errorId.Split('|');
-            if (parts.Length != 2) { stats.IncrementFailed(); continue; }
+            for (int i = 0; i < ids.Length; i++)
+            {
+                ct.ThrowIfCancellationRequested();
+                var errorId = ids[i];
+                var parts = errorId.Split('|');
+                if (parts.Length != 2)
+                {
+                    logger.LogWarning("错误 Id 格式异常，跳过: {Id}", errorId);
+                    stats.IncrementFailed();
+                    continue;
+                }
 
-            var archive = await source.GetByExamIdAsync(parts[0], parts[1]);
-            if (archive == null) { stats.IncrementFailed(); continue; }
+                ExamUploadReq? archive;
+                try
+                {
+                    // 关键：传 ct，否则 Mongo 查询可能无限期挂起
+                    archive = await source.GetByExamIdAsync(parts[0], parts[1], ct);
+                }
+                catch (OperationCanceledException) { throw; }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "读取源端记录失败: {Id}", errorId);
+                    stats.IncrementFailed();
+                    continue;
+                }
 
-            var result = await uploader.UploadAsync(archive, ct);
-            if (result.Success) stats.IncrementSucceeded(); else stats.IncrementFailed();
+                if (archive == null)
+                {
+                    logger.LogWarning("源端已无记录: {Id}", errorId);
+                    stats.IncrementFailed();
+                    continue;
+                }
+
+                var result = await uploader.UploadAsync(archive, ct);
+                if (result.Success) stats.IncrementSucceeded(); else stats.IncrementFailed();
+
+                if ((i + 1) % 50 == 0 || i == ids.Length - 1)
+                    logger.LogInformation("重试进度 {Done}/{Total}", i + 1, ids.Length);
+            }
         }
-
-        await uploader.FlushRemainingAsync();
-        stats.Stop();
+        finally
+        {
+            await uploader.FlushRemainingAsync();
+            progress.Stop();
+            stats.Stop();
+        }
     }
 
     // ────── 工具 ──────

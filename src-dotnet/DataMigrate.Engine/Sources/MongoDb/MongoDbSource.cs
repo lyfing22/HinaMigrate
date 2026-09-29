@@ -59,10 +59,10 @@ public class MongoDbSource : IMigrationSource
         return new SourceMetadata(count, minDate, maxDate);
     }
 
-    public async Task<ExamUploadReq?> GetByExamIdAsync(string orgCode, string examId)
+    public async Task<ExamUploadReq?> GetByExamIdAsync(string orgCode, string examId, CancellationToken ct = default)
     {
         var id = ExamEntity.GetId(orgCode, examId);
-        var entity = await _collection.Find(e => e.Id == id).FirstOrDefaultAsync();
+        var entity = await _collection.Find(e => e.Id == id).FirstOrDefaultAsync(ct);
         return entity == null ? null : ConvertToUploadReq(entity);
     }
 

@@ -48,7 +48,7 @@ public class KingbaseSource : IMigrationSource
         return Task.FromResult(new SourceMetadata(0, null, null));
     }
 
-    public Task<ExamUploadReq?> GetByExamIdAsync(string orgCode, string examId)
+    public Task<ExamUploadReq?> GetByExamIdAsync(string orgCode, string examId, CancellationToken ct = default)
     {
         // TODO: 待源表结构确认后实现
         _logger.LogWarning("KingbaseSource.GetByExamIdAsync 尚未实现");
