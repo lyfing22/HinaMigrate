@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, computed, ref } from 'vue'
+import { onMounted, onUnmounted, computed, ref, watch } from 'vue'
 import { useRoute, useRouter, type RouteLocationRaw } from 'vue-router'
-import { Layout, LayoutContent, Menu, MenuItem, Tag, Modal, Tooltip } from 'ant-design-vue'
+import { Layout, LayoutContent, Menu, MenuItem, Tag, Modal, Tooltip, notification } from 'ant-design-vue'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { metaStore } from '@/stores/meta'
 import { profileStore } from '@/stores/profile'
@@ -23,6 +23,47 @@ const runStatusText = computed(() => ({
   idle: '空闲', running: '运行中', stopping: '停止中',
   done: '已完成', error: '出错'
 } as Record<string, string>)[runStore.status.value] ?? runStore.status.value)
+
+// ---- 全局运行状态通知：无论用户当前在哪个页面，都能收到迁移启停/完成反馈 ----
+watch(
+  () => runStore.status.value,
+  (newStatus, oldStatus) => {
+    // 仅在状态发生实质变化时通知，避免重复
+    if (newStatus === oldStatus) return
+
+    if (newStatus === 'running') {
+      notification.info({
+        message: '迁移已启动',
+        description: `模式: ${runStore.label.value || '—'}，可在「迁移执行」页面查看实时进度与日志`,
+        placement: 'topRight',
+        duration: 6
+      })
+    } else if (newStatus === 'done') {
+      const r = runStore.lastResult.value
+      const summary = r?.summary || `成功 ${r?.succeeded ?? 0} / 失败 ${r?.failed ?? 0} / 共 ${r?.total ?? 0}`
+      notification.success({
+        message: '迁移已完成',
+        description: summary,
+        placement: 'topRight',
+        duration: 8
+      })
+    } else if (newStatus === 'error') {
+      const r = runStore.lastResult.value
+      notification.error({
+        message: '迁移出错',
+        description: r?.message || r?.summary || '请查看「迁移执行」页面日志了解详情',
+        placement: 'topRight',
+        duration: 10
+      })
+    } else if (newStatus === 'idle' && (oldStatus === 'done' || oldStatus === 'error' || oldStatus === 'stopping')) {
+      notification.info({
+        message: '已停止',
+        placement: 'topRight',
+        duration: 4
+      })
+    }
+  }
+)
 
 const menus = [
   { key: '/config', label: '配置管理' },
@@ -147,7 +188,7 @@ onUnmounted(() => { unlisten?.() })
   padding: 0;
 }
 
-/* 标题栏：跨整个窗口顶部，40px 高 */
+/* 标题栏：跨整个窗口顶部，40px 高；中灰底 + 深字，与冷灰内容区拉开层次 */
 .titlebar {
   flex: 0 0 40px;
   height: 40px;
@@ -157,8 +198,8 @@ onUnmounted(() => { unlisten?.() })
   justify-content: space-between;
   padding: 0 16px;
   padding-right: 148px;   /* 让位给三个自定义按钮 3x46=138 + 10px 缓冲 */
-  background: rgba(250, 250, 250, 0.92);
-  border-bottom: 1px solid #e5e5e5;
+  background: #e5e6eb;
+  border-bottom: 1px solid #c9cdd4;
   user-select: none;
 }
 
@@ -170,7 +211,7 @@ onUnmounted(() => { unlisten?.() })
   min-width: 0;
 }
 
-/* 左上角 logo 图标：可点击，hover 有反馈 */
+/* 左上角 logo 图标：可点击，hover 有反馈（蓝底反白） */
 .logo-img {
   width: 22px;
   height: 22px;
@@ -182,28 +223,43 @@ onUnmounted(() => { unlisten?.() })
   user-select: none;
 }
 .logo-img:hover {
-  background: rgba(22, 119, 255, 0.12);
+  background: rgba(0, 0, 0, 0.06);
 }
 
-/* 横排菜单贴合 40px 标题栏 */
+/* 横排菜单贴合 40px 标题栏，浅灰底深字 */
+/* min-width 确保 4 个菜单项不会被 antd 的横向折叠误判为溢出（折叠成“...”）*/
 .menu-h {
   min-height: 40px;
+  min-width: 340px;       /* 4 项 × 每项 ~78px 预留；antd 检测宽 < 项总宽时才折叠 */
   margin: 0;
   padding: 0;
   border-bottom: 0 !important;
   background: transparent !important;
   flex: 0 0 auto;
+  flex-shrink: 0;
 }
 .menu-h :global(.ant-menu-item) {
   padding: 0 14px;
   height: 38px;
   line-height: 38px;
   font-size: 13px;
+  color: #4e5969 !important;
+}
+.menu-h :global(.ant-menu-item:hover) {
+  color: #1d2129 !important;
+  background: rgba(0, 0, 0, 0.06) !important;
 }
 .menu-h :global(.ant-menu-item-active),
 .menu-h :global(.ant-menu-item-selected) {
-  height: 38px;
-  line-height: 38px;
+  height: 32px;
+  line-height: 32px;
+  margin: 4px 0;
+  padding: 0 14px !important;
+  color: #1d2129 !important;
+  background: #fff !important;
+  border-bottom: none !important;
+  border-radius: 6px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
 }
 
 /* 自定义窗口三键 */
@@ -220,7 +276,7 @@ onUnmounted(() => { unlisten?.() })
   height: 100%;
   border: none;
   background: transparent;
-  color: #333;
+  color: #4e5969;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -228,9 +284,10 @@ onUnmounted(() => { unlisten?.() })
   padding: 0;
   outline: none;
 }
-.wc-btn:hover { background: rgba(0, 0, 0, 0.06); }
-.wc-btn:active { background: rgba(0, 0, 0, 0.1); }
+.wc-btn:hover { background: rgba(0, 0, 0, 0.06); color: #1d2129; }
+.wc-btn:active { background: rgba(0, 0, 0, 0.1); color: #1d2129; }
 .wc-close:hover { background: #c42b1c; color: #fff; }
+.wc-close:active { background: #a02418; color: #fff; }
 
 /* 主布局：填 titlebar 下方剩余空间 */
 .main-layout {
@@ -242,6 +299,97 @@ onUnmounted(() => { unlisten?.() })
 .content {
   padding: 16px;
   overflow: auto;
-  background: rgba(243, 243, 243, 0.92);
+  background: #eff1f5;
+}
+
+/* 全局表单/按钮/卡片样式：拉开 label 与控件的视觉层次 */
+.content :global(.ant-card) {
+  background: #fff;
+  border-radius: 8px;
+  border: 1px solid #e6e8eb;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+.content :global(.ant-card .ant-card-head) {
+  border-bottom: 1px solid #eef0f3;
+  min-height: 40px;
+}
+.content :global(.ant-card .ant-card-head-title) {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1d2129;
+  padding: 8px 16px;
+}
+.content :global(.ant-card .ant-card-body) {
+  padding: 16px;
+}
+
+/* Label：次要灰 + 加粗，与 input 内黑色值拉开层次 */
+.content :global(.ant-form-item .ant-form-item-label > label),
+.content :global(.ant-form-item-label > label) {
+  color: #4e5969 !important;
+  font-weight: 500 !important;
+  font-size: 13px !important;
+}
+
+/* Input：白底、明显边框，focus 时蓝色高亮 */
+.content :global(.ant-input),
+.content :global(.ant-input-number-input),
+.content :global(.ant-select-selector) {
+  color: #1d2129 !important;
+  border-color: #c9cdd4 !important;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.content :global(.ant-input:hover),
+.content :global(.ant-input-number:hover .ant-input-number-input),
+.content :global(.ant-select:hover .ant-select-selector) {
+  border-color: #1677ff !important;
+}
+.content :global(.ant-input:focus),
+.content :global(.ant-input:focus-visible),
+.content :global(.ant-input-number-focused .ant-input-number-input),
+.content :global(.ant-select-focused .ant-select-selector) {
+  border-color: #1677ff !important;
+  box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.16) !important;
+}
+
+/* Button：默认按钮白底 + 明显边框 + 灰色文字；primary 按钮强调 */
+.content :global(.ant-btn) {
+  border-radius: 6px;
+  font-weight: 500;
+  border-width: 1px;
+  border-color: #c9cdd4;
+  color: #4e5969;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+.content :global(.ant-btn:hover) {
+  color: #1677ff;
+  border-color: #1677ff;
+  background: #f7faff;
+}
+.content :global(.ant-btn:focus) {
+  color: #1677ff;
+  border-color: #1677ff;
+}
+.content :global(.ant-btn-primary) {
+  background: #1677ff;
+  border-color: #1677ff;
+  color: #fff;
+  box-shadow: 0 1px 2px rgba(22, 119, 255, 0.3);
+}
+.content :global(.ant-btn-primary:hover),
+.content :global(.ant-btn-primary:focus) {
+  background: #4096ff;
+  border-color: #4096ff;
+  color: #fff;
+}
+.content :global(.ant-btn-dangerous) {
+  border-color: #ff4d4f;
+  color: #ff4d4f;
+  background: #fff;
+}
+.content :global(.ant-btn-dangerous:hover) {
+  border-color: #ff7875;
+  color: #ff7875;
+  background: #fff5f5;
 }
 </style>

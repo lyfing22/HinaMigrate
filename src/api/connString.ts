@@ -9,11 +9,13 @@ export interface ConnFields {
   user: string
   password: string
   extra: string // 额外参数，原样透传(如 TrustServerCertificate=true;serverSelectionTimeoutMS=5000)
+  /** 记录原始连接串使用的 server 键名，保证 build↔parse 往返无丢失 */
+  serverKey: 'host' | 'server'
 }
 
 export function parseConnString(raw: string): ConnFields {
   const f: ConnFields = {
-    dbType: '', host: '', port: '', database: '', user: '', password: '', extra: ''
+    dbType: '', host: '', port: '', database: '', user: '', password: '', extra: '', serverKey: 'host'
   }
   if (!raw) return f
   const extras: string[] = []
@@ -25,7 +27,9 @@ export function parseConnString(raw: string): ConnFields {
     if (!k) continue
     const kl = k.toLowerCase()
     if (kl === 'databasetype') f.dbType = v
-    else if (kl === 'host' || kl === 'server') f.host ||= v
+    else if (kl === 'host' || kl === 'server') {
+      if (!f.host) { f.host = v; f.serverKey = kl }
+    }
     else if (kl === 'port') f.port ||= v
     else if (kl === 'database') f.database ||= v
     else if (kl === 'user' || kl === 'username' || kl === 'user id') f.user ||= v
@@ -39,7 +43,7 @@ export function parseConnString(raw: string): ConnFields {
 export function buildConnString(f: ConnFields): string {
   const parts: string[] = []
   if (f.dbType) parts.push(`DatabaseType=${f.dbType}`)
-  if (f.host) parts.push(`Host=${f.host}`)
+  if (f.host) parts.push(`${f.serverKey === 'server' ? 'Server' : 'Host'}=${f.host}`)
   if (f.port) parts.push(`Port=${f.port}`)
   if (f.database) parts.push(`Database=${f.database}`)
   if (f.user) parts.push(`User=${f.user}`)

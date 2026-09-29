@@ -28,13 +28,13 @@ export async function sidecarSend(cmd: string, args: Record<string, unknown> = {
   await invoke('sidecar_send', { cmd: line })
   return new Promise<ResultEvent>((resolve, reject) => {
     pending.set(id, { resolve, reject })
-    // 兜底超时(30s)，避免同步命令无响应时永久挂起
+    // 兜底超时(15s)：ping/initDb 这类同步命令应快速失败，避免用户看起来“无反应”
     setTimeout(() => {
       if (pending.has(id)) {
         pending.delete(id)
-        reject(new Error('命令超时未响应'))
+        reject(new Error('命令超时未响应（15s）'))
       }
-    }, 30_000)
+    }, 15_000)
   })
 }
 

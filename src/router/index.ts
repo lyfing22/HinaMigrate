@@ -1,7 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
 const routes = [
-  { path: '/', redirect: '/run' },
+  { path: '/', redirect: '/config' },
   { path: '/config', name: 'config', component: () => import('@/views/ConfigPage.vue') },
   { path: '/run', name: 'run', component: () => import('@/views/RunPage.vue') },
   { path: '/plans', name: 'plans', component: () => import('@/views/PlansPage.vue') },
