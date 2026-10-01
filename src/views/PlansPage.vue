@@ -24,10 +24,16 @@ function statusColor(s: string) {
   return { Pending: 'default', Running: 'processing', Completed: 'success', Failed: 'error' }[s] ?? 'default'
 }
 
-async function refresh() {
+async function refresh(silent = false) {
   const connStr = profileStore.profile.value.connectionStrings.destinationConn
-  if (!connStr) { message.warning('请先在配置页填写目标连接信息'); return }
-  if (!dbFlag.value.trim()) { message.warning('请填写数据标志 (DbFlag)'); return }
+  if (!connStr) {
+    if (silent) { console.warn('计划追踪：未配置目标连接，跳过自动加载'); return }
+    message.warning('请先在配置页填写目标连接信息'); return
+  }
+  if (!dbFlag.value.trim()) {
+    if (silent) { console.warn('计划追踪：未填写数据标志 (DbFlag)，跳过自动加载'); return }
+    message.warning('请填写数据标志 (DbFlag)'); return
+  }
   loading.value = true
   try {
     await runStore.ensureListening()
@@ -35,13 +41,17 @@ async function refresh() {
     const r = await cmdGetPlans(connStr, dbFlag.value)
     plans.value = r.plans
   } catch (e) {
+    if (silent) { console.warn('计划追踪：自动加载失败:', e); return }
     message.error(`查询失败: ${(e as Error).message}`)
   } finally {
     loading.value = false
   }
 }
 
-onMounted(() => { dbFlag.value = profileStore.profile.value.migration.dbFlag })
+onMounted(() => {
+  dbFlag.value = profileStore.profile.value.migration.dbFlag
+  refresh(true)
+})
 </script>
 
 <template>
@@ -49,7 +59,7 @@ onMounted(() => { dbFlag.value = profileStore.profile.value.migration.dbFlag })
     <template #extra>
       <Space>
         <Input v-model:value="dbFlag" placeholder="数据标志 (DbFlag)" style="width: 180px" />
-        <Button @click="refresh" :loading="loading">刷新</Button>
+        <Button @click="refresh()" :loading="loading">刷新</Button>
       </Space>
     </template>
     <Table :data-source="plans" :columns="columns" :loading="loading" row-key="id" size="small"
@@ -60,7 +70,7 @@ onMounted(() => { dbFlag.value = profileStore.profile.value.migration.dbFlag })
         </template>
       </template>
       <template #emptyText>
-        <Typography.Text type="secondary">点击「刷新」查询(使用当前配置档的目标连接与 DbFlag)</Typography.Text>
+        <Typography.Text type="secondary">暂无数据，可点击「刷新」重新查询(使用当前配置档的目标连接与 DbFlag)</Typography.Text>
       </template>
     </Table>
   </Card>

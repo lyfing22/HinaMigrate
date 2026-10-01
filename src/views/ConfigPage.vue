@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, reactive, watch, onMounted, onUnmounted } from 'vue'
+import { computed, ref, reactive, onMounted } from 'vue'
 import {
   Card, Input, InputPassword, InputNumber, Select, SelectOption,
   Button, Space, message, Alert, Typography
@@ -16,10 +16,14 @@ const p = profileStore.profile
 const ready = ref(false)
 onMounted(async () => {
   try { await sidecarStart() } catch { /* 已运行 */ }
-  await metaStore.load()
-  await profileStore.loadAll()
-  if (!profileStore.activeName.value) {
-    await profileStore.saveAs('默认配置')
+  try {
+    await metaStore.load()
+    await profileStore.loadAll()
+    if (!profileStore.activeName.value) {
+      await profileStore.saveAs('默认配置')
+    }
+  } catch (e) {
+    console.warn('加载配置档失败（浏览器调试模式下无 Tauri 后端）:', e)
   }
   ready.value = true
 })
@@ -81,29 +85,22 @@ async function initDb() {
   }
 }
 
-// ---- 自动保存：编辑后静默写回当前配置档 ----
-let timer: ReturnType<typeof setTimeout> | null = null
-let saving = false
+// ---- 手动保存：点击保存按钮后写回当前配置档 ----
+const saving = ref(false)
 
-watch(() => profileStore.profile.value, () => {
-  if (!ready.value || saving) return
-  profileStore.markDirty()
-  if (timer) clearTimeout(timer)
-  timer = setTimeout(saveActive, 800)
-}, { deep: true })
-
-async function saveActive() {
-  const name = profileStore.activeName.value
-  if (!name) return
-  saving = true
+async function saveNow() {
+  if (saving.value) return
+  const name = profileStore.activeName.value || '默认配置'
+  saving.value = true
   try {
     await profileStore.saveAs(name)
+    message.success(`配置已保存: ${name}`)
+  } catch (e) {
+    message.error(`保存失败: ${e instanceof Error ? e.message : String(e)}`)
   } finally {
-    saving = false
+    saving.value = false
   }
 }
-
-onUnmounted(() => { if (timer) clearTimeout(timer) })
 </script>
 
 <template>
@@ -120,6 +117,9 @@ onUnmounted(() => { if (timer) clearTimeout(timer) })
 
     <!-- 数据库连接：左右两栏，各为紧凑 label:input 布局 -->
     <Card title="数据库连接" size="small" style="margin-bottom: 12px">
+      <template #extra>
+        <Button size="small" type="primary" :loading="saving" :disabled="!ready" @click="saveNow">保存配置</Button>
+      </template>
       <div class="cfg-grid cols-2">
         <div class="cfg-col">
           <ConnStringForm

@@ -19,10 +19,16 @@ const columns = [
   { title: '错误信息', dataIndex: 'errorMessage', key: 'errorMessage', ellipsis: true }
 ]
 
-async function refresh() {
+async function refresh(silent = false) {
   const connStr = profileStore.profile.value.connectionStrings.destinationConn
-  if (!connStr) { message.warning('请先在配置页填写目标连接信息'); return }
-  if (!dbFlag.value.trim()) { message.warning('请填写数据标志 (DbFlag)'); return }
+  if (!connStr) {
+    if (silent) { console.warn('错误重试：未配置目标连接，跳过自动加载'); return }
+    message.warning('请先在配置页填写目标连接信息'); return
+  }
+  if (!dbFlag.value.trim()) {
+    if (silent) { console.warn('错误重试：未填写数据标志 (DbFlag)，跳过自动加载'); return }
+    message.warning('请填写数据标志 (DbFlag)'); return
+  }
   loading.value = true
   selected.value = []
   try {
@@ -31,6 +37,7 @@ async function refresh() {
     const r = await cmdGetErrors(connStr, dbFlag.value)
     errors.value = r.errors
   } catch (e) {
+    if (silent) { console.warn('错误重试：自动加载失败:', e); return }
     message.error(`查询失败: ${(e as Error).message}`)
   } finally {
     loading.value = false
@@ -60,7 +67,10 @@ function onSelectionChange(_keys: (string | number)[], rows: ErrorRow[]) {
   selected.value = rows
 }
 
-onMounted(() => { dbFlag.value = profileStore.profile.value.migration.dbFlag })
+onMounted(() => {
+  dbFlag.value = profileStore.profile.value.migration.dbFlag
+  refresh(true)
+})
 </script>
 
 <template>
@@ -68,7 +78,7 @@ onMounted(() => { dbFlag.value = profileStore.profile.value.migration.dbFlag })
     <template #extra>
       <Space>
         <Input v-model:value="dbFlag" placeholder="数据标志 (DbFlag)" style="width: 180px" />
-        <Button @click="refresh" :loading="loading">刷新</Button>
+        <Button @click="refresh()" :loading="loading">刷新</Button>
         <Button type="primary" :disabled="!selected.length || runStore.status.value === 'running'"
           :loading="runStore.status.value === 'running' && runStore.label.value === 'retry'"
           @click="retrySelected">重试选中 ({{ selected.length }})</Button>
@@ -78,7 +88,7 @@ onMounted(() => { dbFlag.value = profileStore.profile.value.migration.dbFlag })
       :row-selection="{ selectedRowKeys: selected.map(e => e.id), onChange: onSelectionChange }"
       :pagination="{ pageSize: 20, showSizeChanger: true }">
       <template #emptyText>
-        <Typography.Text type="secondary">点击「刷新」查询失败记录</Typography.Text>
+        <Typography.Text type="secondary">暂无失败记录，可点击「刷新」重新查询</Typography.Text>
       </template>
     </Table>
   </Card>

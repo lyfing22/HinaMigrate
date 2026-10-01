@@ -11,8 +11,15 @@ import AboutPanel from '@/components/AboutPanel.vue'
 const route = useRoute()
 const router = useRouter()
 
-const selected = computed(() => [route.path])
+const selected = ref<string[]>([route.path])
 const showAbout = ref(false)
+
+// 路由变化时同步选中态（配合 v-model:selected-keys 双向绑定，避免 computed 只读触发 antd 内部响应副作用）
+watch(
+  () => route.path,
+  p => { selected.value = [p] },
+  { immediate: true }
+)
 
 const runStatusColor = computed(() => ({
   idle: 'default', running: 'processing', stopping: 'warning',
@@ -124,13 +131,11 @@ onUnmounted(() => { unlisten?.() })
           theme="light"
           class="menu-h"
           data-tauri-drag-region="false"
+          disabled-overflow
           @click="({ key }) => go(String(key))"
         >
           <MenuItem v-for="m in menus" :key="m.key">{{ m.label }}</MenuItem>
         </Menu>
-
-        <Tag v-if="profileStore.hasActive.value" color="blue" data-tauri-drag-region="false">{{ profileStore.activeName.value }}</Tag>
-        <Tag v-if="profileStore.dirty.value" color="orange" data-tauri-drag-region="false">未保存</Tag>
       </div>
       <div class="tb-right">
         <Tag :color="runStatusColor" data-tauri-drag-region="false">{{ runStatusText }}</Tag>
@@ -249,17 +254,18 @@ onUnmounted(() => { unlisten?.() })
   color: #1d2129 !important;
   background: rgba(0, 0, 0, 0.06) !important;
 }
+/* active/hover/selected 三态的 padding 与 height 必须和普通态完全一致，
+   否则 hover 会瞬间改宽度 → 相邻项推移 + vc-overflow ResizeObserver 连锁震荡
+   （disabled-overflow 已关掉溢出检测，但 padding 保持一致仍是根本修法） */
 .menu-h :global(.ant-menu-item-active),
 .menu-h :global(.ant-menu-item-selected) {
-  height: 32px;
-  line-height: 32px;
-  margin: 4px 0;
+  margin:4px 0;
   padding: 0 14px !important;
   color: #1d2129 !important;
   background: #fff !important;
   border-bottom: none !important;
-  border-radius: 6px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  border-radius: 6px 6px 0 0;
+  box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.06);
 }
 
 /* 自定义窗口三键 */
