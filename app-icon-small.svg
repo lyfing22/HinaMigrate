@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1024" y2="1024">
+      <stop offset="0" stop-color="#6366F1"/>
+      <stop offset="0.5" stop-color="#3B82F6"/>
+      <stop offset="1" stop-color="#06B6D4"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 圆角底板 -->
+  <rect x="0" y="0" width="1024" height="1024" rx="224" ry="224" fill="url(#bg)"/>
+
+  <!-- 左数据库（2 层，粗间隙） -->
+  <path d="M122 360 L122 664 A150 46 0 0 0 422 664 L422 360 Z" fill="#FFFFFF"/>
+  <ellipse cx="272" cy="360" rx="150" ry="46" fill="#FFFFFF"/>
+  <path d="M122 360 A150 46 0 0 0 422 360" fill="none" stroke="url(#bg)" stroke-width="40"/>
+  <path d="M122 512 A150 46 0 0 0 422 512" fill="none" stroke="url(#bg)" stroke-width="40"/>
+
+  <!-- 右数据库（2 层，粗间隙） -->
+  <path d="M602 360 L602 664 A150 46 0 0 0 902 664 L902 360 Z" fill="#FFFFFF"/>
+  <ellipse cx="752" cy="360" rx="150" ry="46" fill="#FFFFFF"/>
+  <path d="M602 360 A150 46 0 0 0 902 360" fill="none" stroke="url(#bg)" stroke-width="40"/>
+  <path d="M602 512 A150 46 0 0 0 902 512" fill="none" stroke="url(#bg)" stroke-width="40"/>
+
+  <!-- 上箭头：指向右（源 → 目标） -->
+  <path d="M438 424 H506 V404 L586 452 L506 500 V480 H438 Z" fill="#FFFFFF"/>
+
+  <!-- 下箭头：指向左（⇄ 回流） -->
+  <path d="M586 544 H518 V524 L438 572 L518 620 V600 H586 Z" fill="#FFFFFF"/>
+</svg>

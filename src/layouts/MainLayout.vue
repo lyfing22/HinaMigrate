@@ -117,7 +117,7 @@ onUnmounted(() => { unlisten?.() })
         <Tooltip title="福建影像迁移" placement="bottomLeft">
           <img
             class="logo-img"
-            src="/logo.png"
+            src="/logo.svg"
             alt=""
             data-tauri-drag-region="false"
             @click="showAbout = true"
@@ -242,6 +242,7 @@ onUnmounted(() => { unlisten?.() })
   background: transparent !important;
   flex: 0 0 auto;
   flex-shrink: 0;
+  margin-top: -10px;
 }
 .menu-h :global(.ant-menu-item) {
   padding: 0 14px;
@@ -254,9 +255,6 @@ onUnmounted(() => { unlisten?.() })
   color: #1d2129 !important;
   background: rgba(0, 0, 0, 0.06) !important;
 }
-/* active/hover/selected 三态的 padding 与 height 必须和普通态完全一致，
-   否则 hover 会瞬间改宽度 → 相邻项推移 + vc-overflow ResizeObserver 连锁震荡
-   （disabled-overflow 已关掉溢出检测，但 padding 保持一致仍是根本修法） */
 .menu-h :global(.ant-menu-item-active),
 .menu-h :global(.ant-menu-item-selected) {
   margin:4px 0;
