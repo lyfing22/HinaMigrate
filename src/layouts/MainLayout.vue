@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, computed, ref, watch } from 'vue'
+import { onMounted, onUnmounted, computed, ref, watch, type Component } from 'vue'
 import { useRoute, useRouter, type RouteLocationRaw } from 'vue-router'
 import { Layout, LayoutContent, Menu, MenuItem, Tag, Modal, Tooltip, notification } from 'ant-design-vue'
+import { SettingOutlined, PlayCircleOutlined, CalendarOutlined, WarningOutlined } from '@ant-design/icons-vue'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { metaStore } from '@/stores/meta'
 import { profileStore } from '@/stores/profile'
@@ -72,11 +73,11 @@ watch(
   }
 )
 
-const menus = [
-  { key: '/config', label: '配置管理' },
-  { key: '/run', label: '迁移执行' },
-  { key: '/plans', label: '计划追踪' },
-  { key: '/errors', label: '错误重试' }
+const menus: Array<{ key: string; label: string; icon: Component; color?: string }> = [
+  { key: '/config', label: '配置管理', icon: SettingOutlined },
+  { key: '/run', label: '迁移执行', icon: PlayCircleOutlined },
+  { key: '/plans', label: '计划追踪', icon: CalendarOutlined },
+  { key: '/errors', label: '错误重试', icon: WarningOutlined, color: '#ff7d00' }
 ]
 function go(path: string) { router.push(path as RouteLocationRaw) }
 
@@ -134,7 +135,12 @@ onUnmounted(() => { unlisten?.() })
           disabled-overflow
           @click="({ key }) => go(String(key))"
         >
-          <MenuItem v-for="m in menus" :key="m.key">{{ m.label }}</MenuItem>
+          <MenuItem v-for="m in menus" :key="m.key">
+            <span class="mi" :style="m.color ? { color: m.color } : undefined">
+              <component :is="m.icon" />
+            </span>
+            {{ m.label }}
+          </MenuItem>
         </Menu>
       </div>
       <div class="tb-right">
@@ -231,11 +237,19 @@ onUnmounted(() => { unlisten?.() })
   background: rgba(0, 0, 0, 0.06);
 }
 
+/* 菜单项内图标：与文字基线对齐 */
+.mi {
+  display: inline-flex;
+  margin-right: 2px;
+  vertical-align: -2px;
+  font-size: 14px;
+}
+
 /* 横排菜单贴合 40px 标题栏，浅灰底深字 */
 /* min-width 确保 4 个菜单项不会被 antd 的横向折叠误判为溢出（折叠成“...”）*/
 .menu-h {
   min-height: 40px;
-  min-width: 340px;       /* 4 项 × 每项 ~78px 预留；antd 检测宽 < 项总宽时才折叠 */
+  min-width: 460px;       /* 4 项 × 每项 ~100px（含图标）预留；antd 检测宽 < 项总宽时才折叠 */
   margin: 0;
   padding: 0;
   border-bottom: 0 !important;
@@ -253,14 +267,12 @@ onUnmounted(() => { unlisten?.() })
 }
 .menu-h :global(.ant-menu-item:hover) {
   color: #1d2129 !important;
-  background: rgba(0, 0, 0, 0.06) !important;
 }
 .menu-h :global(.ant-menu-item-active),
 .menu-h :global(.ant-menu-item-selected) {
   margin:4px 0;
   padding: 0 14px !important;
   color: #1d2129 !important;
-  background: #fff !important;
   border-bottom: none !important;
   border-radius: 6px 6px 0 0;
   box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.06);

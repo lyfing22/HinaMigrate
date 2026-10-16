@@ -1,30 +1,22 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
-  <defs>
-    <linearGradient id="bg" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1024" y2="1024">
-      <stop offset="0" stop-color="#6366F1"/>
-      <stop offset="0.5" stop-color="#3B82F6"/>
-      <stop offset="1" stop-color="#06B6D4"/>
-    </linearGradient>
-  </defs>
+  <!-- 小尺寸版：纯蓝底 + 白色单个数据库圆柱 + 右侧粗箭头，16/24/32/48px 下依然清晰 -->
+  <rect x="0" y="0" width="1024" height="1024" rx="224" ry="224" fill="#2F7CF6"/>
 
-  <!-- 圆角底板 -->
-  <rect x="0" y="0" width="1024" height="1024" rx="224" ry="224" fill="url(#bg)"/>
+  <!-- 数据库圆柱（居中，占宽度 ~62%） -->
+  <!-- 圆柱主体 -->
+  <path d="M80 344 L80 680 A330 82 0 0 0 740 680 L740 344 Z" fill="#FFFFFF"/>
+  <!-- 顶面椭圆 -->
+  <ellipse cx="410" cy="344" rx="330" ry="82" fill="#FFFFFF"/>
+  <!-- 顶面与主体分界：蓝切割线 -->
+  <path d="M80 344 A330 82 0 0 0 740 344" fill="none" stroke="#2F7CF6" stroke-width="48"/>
+  <!-- 中间层分界：蓝切割线 -->
+  <path d="M80 512 A330 82 0 0 0 740 512" fill="none" stroke="#2F7CF6" stroke-width="48"/>
+  <!-- 底层分界（圆柱底部弧） -->
+  <path d="M80 680 A330 82 0 0 0 740 680" fill="none" stroke="#2F7CF6" stroke-width="48"/>
 
-  <!-- 左数据库（2 层，粗间隙） -->
-  <path d="M122 360 L122 664 A150 46 0 0 0 422 664 L422 360 Z" fill="#FFFFFF"/>
-  <ellipse cx="272" cy="360" rx="150" ry="46" fill="#FFFFFF"/>
-  <path d="M122 360 A150 46 0 0 0 422 360" fill="none" stroke="url(#bg)" stroke-width="40"/>
-  <path d="M122 512 A150 46 0 0 0 422 512" fill="none" stroke="url(#bg)" stroke-width="40"/>
-
-  <!-- 右数据库（2 层，粗间隙） -->
-  <path d="M602 360 L602 664 A150 46 0 0 0 902 664 L902 360 Z" fill="#FFFFFF"/>
-  <ellipse cx="752" cy="360" rx="150" ry="46" fill="#FFFFFF"/>
-  <path d="M602 360 A150 46 0 0 0 902 360" fill="none" stroke="url(#bg)" stroke-width="40"/>
-  <path d="M602 512 A150 46 0 0 0 902 512" fill="none" stroke="url(#bg)" stroke-width="40"/>
-
-  <!-- 上箭头：指向右（源 → 目标） -->
-  <path d="M438 424 H506 V404 L586 452 L506 500 V480 H438 Z" fill="#FFFFFF"/>
-
-  <!-- 下箭头：指向左（⇄ 回流） -->
-  <path d="M586 544 H518 V524 L438 572 L518 620 V600 H586 Z" fill="#FFFFFF"/>
+  <!-- 右侧粗箭头（与圆柱垂直居中对齐，不重叠） -->
+  <!-- 箭头杆：中心 y=512 -->
+  <rect x="780" y="452" width="108" height="120" fill="#FFFFFF"/>
+  <!-- 箭头三角：以 512 为中心，y 408-616 -->
+  <path d="M888 408 L888 616 L1000 512 Z" fill="#FFFFFF"/>
 </svg>
